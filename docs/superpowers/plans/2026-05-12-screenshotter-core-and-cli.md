@@ -114,7 +114,7 @@ let package = Package(
         .target(
             name: "ScreenshotterCore",
             dependencies: [
-                .product(name: "secp256k1", package: "secp256k1.swift"),
+                .product(name: "P256K", package: "secp256k1.swift"),
                 .product(name: "CryptoSwift", package: "CryptoSwift"),
             ]
         ),
@@ -528,7 +528,7 @@ Expected: fails — type `Secp256k1Signer` undefined.
 
 ```swift
 import Foundation
-import secp256k1
+import P256K
 
 public struct RecoverableSignature: Equatable {
     public let r: Data        // 32 bytes
@@ -548,7 +548,7 @@ public struct Secp256k1Signer {
 
     public init(privateKey: Data) throws {
         guard privateKey.count == 32 else { throw Secp256k1Error.invalidPrivateKeyLength }
-        let key = try secp256k1.Signing.PrivateKey(dataRepresentation: privateKey)
+        let key = try P256K.Signing.PrivateKey(dataRepresentation: privateKey)
         self.privateKey = privateKey
         // .format == .uncompressed yields the 65-byte form
         self.publicKeyUncompressed = Data(key.publicKey.rawRepresentation)
@@ -562,7 +562,7 @@ public struct Secp256k1Signer {
     /// Sign a precomputed 32-byte digest. The digest is signed as-is, no extra hashing.
     public func signRecoverable(digest: Data) throws -> RecoverableSignature {
         guard digest.count == 32 else { throw Secp256k1Error.signingFailed }
-        let key = try secp256k1.Recovery.PrivateKey(dataRepresentation: privateKey)
+        let key = try P256K.Recovery.PrivateKey(dataRepresentation: privateKey)
         let signature = try key.signature(for: digest)
         // signature.dataRepresentation is 65 bytes: r (32) || s (32) || v (1)
         let raw = Data(signature.dataRepresentation)
