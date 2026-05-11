@@ -28,5 +28,9 @@ let package = Package(
             name: "ScreenshotterCoreTests",
             dependencies: ["ScreenshotterCore"]
         ),
+        .testTarget(
+            name: "KeychainStoreTests",
+            dependencies: ["ScreenshotterCore"]
+        ),
     ]
 )
