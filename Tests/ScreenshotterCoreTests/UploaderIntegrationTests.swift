@@ -35,5 +35,6 @@ func integrationPaidUploadAgainstCloudupStage() async throws {
     let png = try Data(hexString: pngHex)
 
     let url = try await uploader.upload(data: png, filename: "integration.png", mime: "image/png")
+    print("UPLOAD_URL: \(url.absoluteString)")
     #expect(url.absoluteString.contains("stage-cloudup.com"))
 }
