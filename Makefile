@@ -1,4 +1,4 @@
-.PHONY: build test clean cli integration
+.PHONY: build test clean cli integration app run-app
 
 build:
 	swift build
@@ -15,3 +15,9 @@ integration:
 clean:
 	swift package clean
 	rm -rf .build
+
+app:
+	./scripts/bundle.sh
+
+run-app: app
+	open build/Screenshotter.app

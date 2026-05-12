@@ -34,10 +34,10 @@ let package = Package(
             name: "KeychainStoreTests",
             dependencies: ["ScreenshotterCore"]
         ),
-        // resources: [...] omitted until Task 2 (Info.plist.template) and Task 9 (Assets) are created
         .executableTarget(
             name: "Screenshotter",
-            dependencies: ["ScreenshotterCore"]
+            dependencies: ["ScreenshotterCore"],
+            resources: [.copy("App/Info.plist.template")]
         ),
         .testTarget(
             name: "ScreenshotterTests",
