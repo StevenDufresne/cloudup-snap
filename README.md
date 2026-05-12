@@ -1,22 +1,22 @@
 # Screenshotter
 
-A macOS app (forthcoming) that captures, annotates, and uploads screenshots
+A macOS menubar app that captures screen regions, annotates them, and uploads
 to Cloudup, paying per upload in USDC on Base Sepolia via the
 [MPP / x402](docs/superpowers/protocol/mpp-x402.md)-style protocol implemented
 by [`tellyworth/mpp-remote`](https://github.com/tellyworth/mpp-remote).
 
-This repository currently contains **Plan 1**:
+Plan 1 (the library + CLI) and Plan 2 (the macOS app) are both implemented.
 
 - `ScreenshotterCore` — Swift library handling the MCP + payment + upload pipeline.
 - `screenshotter-cli` — CLI binary that demonstrates an end-to-end paid upload.
-
-Plan 2 (the macOS app — capture, annotation, menubar, hotkey) is forthcoming.
+- `Screenshotter.app` — menubar app: ⌘⇧2 to capture, annotate, share.
 
 ## Build
 
 ```sh
 swift build           # debug
-swift build -c release # release; binary at .build/release/screenshotter-cli
+swift build -c release # release
+make app              # produce build/Screenshotter.app
 ```
 
 ## Test
@@ -25,31 +25,52 @@ swift build -c release # release; binary at .build/release/screenshotter-cli
 swift test
 ```
 
-42 unit tests + 1 viem-parity cross-check + 1 gated live-network integration test.
+51 unit tests + 1 viem-parity cross-check + 1 snapshot-tested renderer + 1 gated
+live-network integration test.
 
-The Keychain integration tests are gated behind `SCREENSHOTTER_KEYCHAIN_TESTS=1`.
-The paid-upload integration test is gated behind `SCREENSHOTTER_INTEGRATION=1`
-plus `SCREENSHOTTER_TEST_WALLET_KEY=0x<funded testnet key>`.
+Gated tests:
+- `SCREENSHOTTER_KEYCHAIN_TESTS=1` — Keychain integration tests.
+- `SCREENSHOTTER_INTEGRATION=1` + `SCREENSHOTTER_TEST_WALLET_KEY=0x<key>` —
+  live paid upload against Cloudup stage + Base Sepolia.
+
+## Running the macOS app
+
+```sh
+make app
+open build/Screenshotter.app
+```
+
+On first launch:
+
+1. Grant **Screen Recording** permission in System Settings → Privacy & Security
+   → Screen Recording. Quit and relaunch the app after granting (macOS requires it).
+2. Grant **Accessibility** permission for the global hotkey.
+3. The onboarding window shows your wallet address. Fund it on Base Sepolia
+   (need ~$0.10 USDC + a tiny bit of ETH for gas) from a faucet:
+   - [Coinbase CDP faucet](https://portal.cdp.coinbase.com/products/faucet)
+   - [Circle USDC faucet](https://faucet.circle.com/)
+
+Then **press ⌘⇧2** anywhere to capture a region. The annotation editor opens
+with the region as background; pick a tool (arrow / line / rect / ellipse /
+text / pen / blur / sticker), draw, then hit **Upload**. The share URL lands on
+your clipboard with a notification.
+
+The CLI and the app share the same Keychain-backed wallet
+(`com.bongnam.screenshotter / default`), so anything funded for the CLI is
+already usable from the app.
 
 ## CLI usage
 
-Get the CLI's wallet address (generated on first run, stored in macOS Keychain
-under the `com.bongnam.screenshotter` service):
+Get the wallet address:
 
 ```sh
-screenshotter-cli address
+.build/release/screenshotter-cli address
 ```
 
-Fund that address with **Base Sepolia ETH (for gas)** and **Base Sepolia USDC
-(for the upload fee, ~0.05 USDC per upload)** from a faucet:
-
-- Coinbase CDP faucet: <https://portal.cdp.coinbase.com/products/faucet>
-- Circle USDC faucet: <https://faucet.circle.com/>
-
-Then upload anything:
+Upload anything:
 
 ```sh
-screenshotter-cli upload path/to/file.png
+.build/release/screenshotter-cli upload path/to/file.png
 # prints: https://stage-cloudup.com/s/...
 ```
 
@@ -65,6 +86,9 @@ screenshotter-cli upload path/to/file.png
 - Cloudup `quick_upload` + `tools/call` content-array unwrapping: working;
   returns a real share URL.
 
-Protocol notes are in [`docs/superpowers/protocol/mpp-x402.md`](docs/superpowers/protocol/mpp-x402.md).
-Design spec: [`docs/superpowers/specs/2026-05-12-screenshotter-design.md`](docs/superpowers/specs/2026-05-12-screenshotter-design.md).
-Implementation plan: [`docs/superpowers/plans/2026-05-12-screenshotter-core-and-cli.md`](docs/superpowers/plans/2026-05-12-screenshotter-core-and-cli.md).
+## Docs
+
+- Protocol notes: [`docs/superpowers/protocol/mpp-x402.md`](docs/superpowers/protocol/mpp-x402.md)
+- Design spec: [`docs/superpowers/specs/2026-05-12-screenshotter-design.md`](docs/superpowers/specs/2026-05-12-screenshotter-design.md)
+- Plan 1 (core + CLI): [`docs/superpowers/plans/2026-05-12-screenshotter-core-and-cli.md`](docs/superpowers/plans/2026-05-12-screenshotter-core-and-cli.md)
+- Plan 2 (macOS app): [`docs/superpowers/plans/2026-05-12-screenshotter-macos-app.md`](docs/superpowers/plans/2026-05-12-screenshotter-macos-app.md)
