@@ -12,7 +12,7 @@ public struct StreamableHTTPTransport: MCPTransport {
     public func send(
         request: JSONRPCRequest,
         extraHeaders: [String: String]
-    ) async throws -> JSONRPCResponse {
+    ) async throws -> MCPSendResult {
         var urlRequest = URLRequest(url: endpoint)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -25,29 +25,29 @@ public struct StreamableHTTPTransport: MCPTransport {
             throw URLError(.badServerResponse)
         }
         let contentType = http.value(forHTTPHeaderField: "Content-Type") ?? ""
+        let headers: [String: String] = http.allHeaderFields.reduce(into: [:]) { acc, kv in
+            if let k = kv.key as? String, let v = kv.value as? String { acc[k] = v }
+        }
 
         if contentType.contains("text/event-stream") {
             let stream = AsyncStream<Data> { cont in
                 Task {
-                    do {
-                        for try await byte in bytes { cont.yield(Data([byte])) }
-                        cont.finish()
-                    } catch {
-                        cont.finish()
-                    }
+                    for try await byte in bytes { cont.yield(Data([byte])) }
+                    cont.finish()
                 }
             }
             for try await event in SSEReader(byteStream: stream).events {
                 if let data = event.data.data(using: .utf8),
                    let resp = try? JSONDecoder().decode(JSONRPCResponse.self, from: data) {
-                    return resp
+                    return MCPSendResult(response: resp, responseHeaders: headers)
                 }
             }
             throw URLError(.badServerResponse)
         } else {
             var data = Data()
             for try await byte in bytes { data.append(byte) }
-            return try JSONDecoder().decode(JSONRPCResponse.self, from: data)
+            let resp = try JSONDecoder().decode(JSONRPCResponse.self, from: data)
+            return MCPSendResult(response: resp, responseHeaders: headers)
         }
     }
 }

@@ -34,11 +34,29 @@ public struct Uploader: Sendable {
     }
 
     private func extractShareURL(from value: EIP712Value) throws -> URL {
-        guard case .object(let obj) = value,
-              case .string(let s) = obj["share_url"] ?? .null,
-              let url = URL(string: s) else {
-            throw PaymentError.other("response missing share_url")
+        guard case .object(let obj) = value else {
+            throw PaymentError.other("response was not an object")
         }
-        return url
+        // MCP tools/call wraps the tool's actual result in a `content` array,
+        // typically `[{type: "text", text: "<json>"}]`. Parse the inner text as JSON
+        // if we see that shape; otherwise look for share_url directly.
+        if case .array(let content) = obj["content"] ?? .null {
+            for item in content {
+                if case .object(let part) = item,
+                   case .string(let text) = part["text"] ?? .null,
+                   let data = text.data(using: .utf8),
+                   let inner = try? JSONDecoder().decode(EIP712Value.self, from: data),
+                   case .object(let innerObj) = inner,
+                   case .string(let s) = innerObj["share_url"] ?? .null,
+                   let url = URL(string: s) {
+                    return url
+                }
+            }
+            throw PaymentError.other("MCP content array had no share_url text part")
+        }
+        if case .string(let s) = obj["share_url"] ?? .null, let url = URL(string: s) {
+            return url
+        }
+        throw PaymentError.other("response missing share_url")
     }
 }
