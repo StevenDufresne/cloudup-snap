@@ -25,8 +25,15 @@ final class ScreenshotterApp: NSObject, NSApplicationDelegate {
 
         hotkey.register { [weak self] in self?.coordinator.startCapture(mode: .region) }
 
-        if let wallet = try? WalletProvider.wallet() {
-            onboarding.presentIfNeeded(walletAddress: wallet.address.hexString())
+        // Defer onboarding to next run-loop tick so the activation/animation
+        // machinery has settled. Showing a window directly from
+        // applicationDidFinishLaunching on an LSUIElement app crashes on
+        // macOS 26.5 in _NSWindowTransformAnimation dealloc.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if let wallet = try? WalletProvider.wallet() {
+                self.onboarding.presentIfNeeded(walletAddress: wallet.address.hexString())
+            }
         }
     }
 }
