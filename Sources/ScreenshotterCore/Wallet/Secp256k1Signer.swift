@@ -1,7 +1,7 @@
 import Foundation
 import P256K
 
-public struct RecoverableSignature: Equatable {
+public struct RecoverableSignature: Equatable, Sendable {
     public let r: Data        // 32 bytes
     public let s: Data        // 32 bytes
     public let v: UInt8       // recovery id: 0 or 1
@@ -13,7 +13,7 @@ public enum Secp256k1Error: Error {
     case keyGenerationFailed
 }
 
-public struct Secp256k1Signer {
+public struct Secp256k1Signer: Sendable {
     public let privateKey: Data            // 32 bytes
     public let publicKeyUncompressed: Data // 65 bytes (0x04 || X || Y)
 

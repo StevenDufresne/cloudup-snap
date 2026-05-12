@@ -4,7 +4,7 @@ public enum EthereumAddressError: Error {
     case badPublicKeyLength
 }
 
-public struct EthereumAddress: Equatable, Hashable {
+public struct EthereumAddress: Equatable, Hashable, Sendable {
     /// 20 raw bytes.
     public let bytes: Data
 
