@@ -42,8 +42,8 @@ public struct PaymentClient: Sendable {
             throw PaymentError.noSupportedMethod(offered: challenge.methods.map(\.id))
         }
         let tokenAmount = try unitsFromDecimal(challenge.amount, decimals: method.currencyDecimals)
-        let recipient = EthereumAddress(bytes: method.recipientAddress)
-        let contract = EthereumAddress(bytes: method.currencyContract)
+        let recipient = try method.recipientEthereumAddress()
+        let contract = try method.currencyContractAddress()
 
         let txHash: String
         do {

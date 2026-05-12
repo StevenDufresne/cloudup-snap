@@ -33,7 +33,7 @@ public struct PaymentChallenge: Decodable, Sendable {
         methods.first(where: { m in
             m.id.hasPrefix("eip3009-usdc-")
             || m.id.hasPrefix("erc20-")
-            || !m.currencyContract.isEmpty
+            || m.hasCurrencyContract
         })
     }
 }
@@ -63,6 +63,30 @@ public struct PaymentMethod: Decodable, Sendable {
         self.recipientAddressHex = try c.decode(String.self, forKey: .recipientAddress)
     }
 
-    public var currencyContract: Data { (try? Data(hexString: currencyContractHex)) ?? Data() }
-    public var recipientAddress: Data { (try? Data(hexString: recipientAddressHex)) ?? Data() }
+    /// Decoded 20-byte contract address. Throws `PaymentError.malformedChallenge` if the
+    /// server returned a hex string that doesn't parse to exactly 20 bytes.
+    public func currencyContractAddress() throws -> EthereumAddress {
+        try parseAddress(hex: currencyContractHex, field: "currency_contract")
+    }
+
+    /// Decoded 20-byte recipient address. Throws `PaymentError.malformedChallenge` on bad hex.
+    public func recipientEthereumAddress() throws -> EthereumAddress {
+        try parseAddress(hex: recipientAddressHex, field: "recipient_address")
+    }
+
+    private func parseAddress(hex: String, field: String) throws -> EthereumAddress {
+        let bytes: Data
+        do { bytes = try Data(hexString: hex) }
+        catch { throw PaymentError.malformedChallenge("\(field) is not valid hex: \(hex)") }
+        guard bytes.count == 20 else {
+            throw PaymentError.malformedChallenge("\(field) must be 20 bytes, got \(bytes.count): \(hex)")
+        }
+        return EthereumAddress(bytes: bytes)
+    }
+
+    /// True if this method has a non-empty contract address hex string (used by
+    /// `PaymentChallenge.firstSupportedMethod` for method picking).
+    public var hasCurrencyContract: Bool {
+        !currencyContractHex.isEmpty && currencyContractHex != "0x"
+    }
 }

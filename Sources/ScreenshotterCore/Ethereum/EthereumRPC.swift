@@ -109,12 +109,13 @@ public extension EthereumRPC {
         let result: String = try await call("eth_sendRawTransaction", params: [raw.hexEncodedString(prefix: true)])
         return result
     }
+    /// Returns nil only when the RPC node explicitly reports the receipt isn't ready
+    /// (`result: null`). Network / auth / HTTP errors propagate so the caller's poll
+    /// loop doesn't silently turn them into a `receiptTimeout`.
     func transactionReceipt(_ txHash: String) async throws -> TransactionReceipt? {
-        do {
-            let receipt: TransactionReceipt = try await call("eth_getTransactionReceipt", params: [txHash])
-            return receipt
-        } catch {
-            return nil
-        }
+        let raw: EIP712Value = try await call("eth_getTransactionReceipt", params: [txHash])
+        if case .null = raw { return nil }
+        let json = try JSONEncoder().encode(raw)
+        return try JSONDecoder().decode(TransactionReceipt.self, from: json)
     }
 }
