@@ -8,10 +8,22 @@ public final class FundingPanel {
     private var window: NSWindow?
     public init() {}
 
-    public func present(address: String, balanceUSDC: Decimal, balanceETH: Decimal, onRetry: (() -> Void)? = nil) {
-        let root = FundingPanelView(address: address, balanceUSDC: balanceUSDC, balanceETH: balanceETH, onRetry: onRetry)
+    public func present(
+        address: String,
+        balanceUSDC: Decimal,
+        balanceETH: Decimal,
+        reason: String? = nil,
+        onRetry: (() -> Void)? = nil
+    ) {
+        let root = FundingPanelView(
+            address: address,
+            balanceUSDC: balanceUSDC,
+            balanceETH: balanceETH,
+            reason: reason,
+            onRetry: onRetry
+        )
         let view = NSHostingView(rootView: root)
-        let win = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 460),
+        let win = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 560),
                            styleMask: [.titled, .closable], backing: .buffered, defer: false)
         win.title = "Wallet"
         win.contentView = view
@@ -26,14 +38,38 @@ struct FundingPanelView: View {
     let address: String
     let balanceUSDC: Decimal
     let balanceETH: Decimal
+    /// Optional explanation — set when the panel is shown because a payment failed.
+    let reason: String?
     let onRetry: (() -> Void)?
 
+    private static let coinbaseFaucet = URL(string: "https://portal.cdp.coinbase.com/products/faucet")!
+    private static let circleFaucet   = URL(string: "https://faucet.circle.com/")!
+    private static let alchemyFaucet  = URL(string: "https://www.alchemy.com/faucets/base-sepolia")!
+
     var body: some View {
-        VStack(spacing: 16) {
-            Text("Fund your wallet on Base Sepolia").font(.headline)
-            if let qr = qrImage(for: address) {
-                Image(nsImage: qr).resizable().interpolation(.none).frame(width: 200, height: 200)
+        VStack(alignment: .center, spacing: 14) {
+            if let reason = reason {
+                // Show the specific failure reason at the top, in an attention color
+                Text("Upload failed").font(.headline).foregroundColor(.primary)
+                Text(reason)
+                    .font(.body)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 8)
+                Divider().padding(.vertical, 4)
             }
+
+            Text("Fund your wallet to upload").font(.headline)
+            Text("Each upload pays ~$0.05 in USDC on Base Sepolia. The wallet also needs a tiny bit of ETH for transaction gas.")
+                .font(.callout)
+                .multilineTextAlignment(.center)
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 8)
+
+            if let qr = qrImage(for: address) {
+                Image(nsImage: qr).resizable().interpolation(.none).frame(width: 180, height: 180)
+            }
+
             HStack(spacing: 4) {
                 Text(address).font(.system(.body, design: .monospaced)).truncationMode(.middle).lineLimit(1)
                 Button("Copy") {
@@ -41,18 +77,36 @@ struct FundingPanelView: View {
                     NSPasteboard.general.setString(address, forType: .string)
                 }.buttonStyle(.borderless)
             }
-            HStack(spacing: 16) {
-                VStack { Text("USDC").font(.caption); Text(balanceUSDC.description).font(.system(.body, design: .monospaced)) }
-                VStack { Text("ETH").font(.caption); Text(balanceETH.description).font(.system(.body, design: .monospaced)) }
+
+            HStack(spacing: 24) {
+                VStack { Text("USDC").font(.caption).foregroundColor(.secondary); Text(balanceUSDC.description).font(.system(.body, design: .monospaced)) }
+                VStack { Text("ETH").font(.caption).foregroundColor(.secondary);  Text(balanceETH.description).font(.system(.body, design: .monospaced)) }
             }
-            Text("Fund with Base Sepolia ETH (for gas) + USDC (for upload fees).")
-                .font(.footnote).multilineTextAlignment(.center).foregroundColor(.secondary)
+
+            // Faucet links — bring the user directly where they need to go.
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Faucets").font(.caption).foregroundColor(.secondary)
+                Link(destination: Self.coinbaseFaucet) {
+                    Label("Coinbase CDP (ETH + USDC)", systemImage: "drop.fill")
+                }
+                Link(destination: Self.circleFaucet) {
+                    Label("Circle (USDC only)", systemImage: "dollarsign.circle")
+                }
+                Link(destination: Self.alchemyFaucet) {
+                    Label("Alchemy (ETH only)", systemImage: "fuelpump")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 8)
+
             if let onRetry = onRetry {
-                Button("I've funded — retry upload", action: onRetry).buttonStyle(.borderedProminent)
+                Button("I've funded — retry upload", action: onRetry)
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.return)
             }
         }
         .padding(20)
-        .frame(width: 380)
+        .frame(width: 420)
     }
 
     private func qrImage(for text: String) -> NSImage? {

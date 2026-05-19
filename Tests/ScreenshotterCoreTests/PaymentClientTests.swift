@@ -19,6 +19,18 @@ private final class StubWallet: WalletProtocol, @unchecked Sendable {
         lastTransferArgs = (to, amount, contract)
         return returnedTxHash
     }
+    func signX402Payment(_ req: X402PaymentRequirements, now: Date) throws -> X402PaymentPayload {
+        X402PaymentPayload(
+            x402Version: 1, scheme: req.scheme, network: req.network,
+            payload: X402PaymentPayload.Inner(
+                signature: "0x" + String(repeating: "00", count: 65),
+                authorization: X402Authorization(
+                    from: address.hexString(),
+                    to: "0x" + req.payTo.hexEncodedString(),
+                    value: req.maxAmountRequired,
+                    validAfter: "0", validBefore: "9999999999",
+                    nonce: "0x" + String(repeating: "42", count: 32))))
+    }
 }
 
 @Test func paymentClientSettlesChallengeUnderCap() async throws {

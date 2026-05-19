@@ -19,21 +19,6 @@ public enum Tool: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-public struct StrokePreset: Identifiable, Hashable, Sendable {
-    public var id: String { "\(width)-\(isDashed)" }
-    public let width: CGFloat
-    public let isDashed: Bool
-
-    public static let all: [StrokePreset] = [
-        StrokePreset(width: 2, isDashed: false),
-        StrokePreset(width: 4, isDashed: false),
-        StrokePreset(width: 8, isDashed: false),
-        StrokePreset(width: 2, isDashed: true),
-        StrokePreset(width: 4, isDashed: true),
-        StrokePreset(width: 8, isDashed: true),
-    ]
-}
-
 public struct ToolsPalette: View {
     @Binding public var selectedTool: Tool
     @Binding public var strokeColor: Color
@@ -46,6 +31,7 @@ public struct ToolsPalette: View {
     public var onRedo: () -> Void
 
     @State private var showingStickerPicker: Bool = false
+    @State private var showingStrokePicker: Bool = false
 
     public init(
         selectedTool: Binding<Tool>,
@@ -95,23 +81,11 @@ public struct ToolsPalette: View {
                         .frame(width: 28)
                         .help("Stroke color")
 
-                    // Stroke style: button-styled dropdown with 6 visual presets
-                    // (3 solid weights + 3 dashed). Trigger button shows a live
-                    // preview of the currently-selected stroke.
-                    Menu {
-                        ForEach(StrokePreset.all) { preset in
-                            Button {
-                                strokeWidth = preset.width
-                                strokeIsDashed = preset.isDashed
-                            } label: {
-                                StrokePresetLabel(
-                                    width: preset.width,
-                                    isDashed: preset.isDashed,
-                                    color: strokeColor,
-                                    isCurrent: preset.width == strokeWidth && preset.isDashed == strokeIsDashed
-                                )
-                            }
-                        }
+                    // Stroke style: opens a popover with horizontal-bar previews
+                    // grouped into sections (solid widths, dashed). Trigger
+                    // button shows a live preview of the current stroke.
+                    Button {
+                        showingStrokePicker.toggle()
                     } label: {
                         HStack(spacing: 4) {
                             StrokeSwatch(width: strokeWidth, isDashed: strokeIsDashed, color: strokeColor)
@@ -121,10 +95,17 @@ public struct ToolsPalette: View {
                                 .foregroundColor(.secondary)
                         }
                     }
-                    .menuStyle(.button)
-                    .menuIndicator(.hidden)
+                    .buttonStyle(.bordered)
                     .fixedSize()
                     .help("Stroke style")
+                    .popover(isPresented: $showingStrokePicker, arrowEdge: .bottom) {
+                        StrokeStylePicker(
+                            width: $strokeWidth,
+                            isDashed: $strokeIsDashed,
+                            color: strokeColor,
+                            onClose: { showingStrokePicker = false }
+                        )
+                    }
 
                     Divider().frame(height: 24)
 
@@ -236,22 +217,55 @@ struct StrokeSwatch: View {
     }
 }
 
-/// One row of the stroke dropdown — pure visual line preview + checkmark.
-struct StrokePresetLabel: View {
-    let width: CGFloat
-    let isDashed: Bool
-    let color: Color
-    let isCurrent: Bool
+/// Popover-style stroke picker that renders each option as a visual bar,
+/// grouped into sections (solid widths, dashed) with a leading checkmark
+/// next to the currently-selected option. Modeled on macOS Markup's stroke
+/// dropdown.
+struct StrokeStylePicker: View {
+    @Binding var width: CGFloat
+    @Binding var isDashed: Bool
+    var color: Color
+    var onClose: () -> Void
+
+    private static let solidWidths: [CGFloat] = [1, 2, 3, 4, 6, 8, 12]
+    private static let dashedWidths: [CGFloat] = [3, 6]
+
     var body: some View {
-        HStack(spacing: 8) {
-            StrokeSwatch(width: width, isDashed: isDashed, color: color)
-                .frame(width: 96, height: 14)
-            if isCurrent {
-                Image(systemName: "checkmark").foregroundColor(.secondary)
-            } else {
-                Image(systemName: "checkmark").opacity(0)
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Self.solidWidths, id: \.self) { w in
+                row(width: w, isDashed: false)
+            }
+            Divider().padding(.vertical, 4)
+            ForEach(Self.dashedWidths, id: \.self) { w in
+                row(width: w, isDashed: true)
             }
         }
+        .padding(.vertical, 6)
+        .frame(width: 170)
+    }
+
+    @ViewBuilder
+    private func row(width w: CGFloat, isDashed dashed: Bool) -> some View {
+        let isCurrent = w == width && dashed == isDashed
+        Button {
+            width = w
+            isDashed = dashed
+            onClose()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 14)
+                    .opacity(isCurrent ? 1 : 0)
+                StrokeSwatch(width: w, isDashed: dashed, color: color)
+                    .frame(maxWidth: .infinity, minHeight: 16)
+                Spacer().frame(width: 14)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 

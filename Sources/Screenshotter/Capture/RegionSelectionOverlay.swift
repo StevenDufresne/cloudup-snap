@@ -10,7 +10,11 @@ public final class RegionSelectionOverlay {
 
     public func present(completion: @escaping (CGRect?) -> Void) {
         self.completion = completion
-        let screen = NSScreen.main ?? NSScreen.screens[0]
+        // Pick the screen the mouse is currently on; falls back to main / first.
+        let mouseLocation = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) })
+            ?? NSScreen.main
+            ?? NSScreen.screens[0]
         let win = NSWindow(
             contentRect: screen.frame,
             styleMask: .borderless,

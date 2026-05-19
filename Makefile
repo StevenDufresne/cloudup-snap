@@ -20,4 +20,4 @@ app:
 	./scripts/bundle.sh
 
 run-app: app
-	open build/Screenshotter.app
+	open "build/Cloudup Snap.app"

@@ -3,10 +3,11 @@
 <plist version="1.0">
 <dict>
   <key>CFBundleDevelopmentRegion</key><string>en</string>
-  <key>CFBundleExecutable</key><string>Screenshotter</string>
+  <key>CFBundleExecutable</key><string>CloudupSnap</string>
   <key>CFBundleIdentifier</key><string>com.bongnam.screenshotter</string>
-  <key>CFBundleName</key><string>Screenshotter</string>
-  <key>CFBundleDisplayName</key><string>Screenshotter</string>
+  <key>CFBundleName</key><string>Cloudup Snap</string>
+  <key>CFBundleDisplayName</key><string>Cloudup Snap</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>0.1.0</string>
   <key>CFBundleVersion</key><string>1</string>
@@ -14,8 +15,8 @@
   <key>LSUIElement</key><true/>
   <key>NSHumanReadableCopyright</key><string>© 2026 Steve Dufresne</string>
   <key>NSScreenCaptureDescription</key>
-  <string>Screenshotter captures regions of your screen to annotate and share.</string>
+  <string>Cloudup Snap captures regions of your screen to annotate and share.</string>
   <key>NSAppleEventsUsageDescription</key>
-  <string>Screenshotter sends notifications and posts to the clipboard.</string>
+  <string>Cloudup Snap sends notifications and posts to the clipboard.</string>
 </dict>
 </plist>

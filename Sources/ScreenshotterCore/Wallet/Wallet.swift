@@ -9,6 +9,14 @@ public protocol WalletProtocol: Sendable {
         rpc: EthereumRPC,
         receiptPoll: ReceiptPollPolicy
     ) async throws -> String
+    func signX402Payment(_ req: X402PaymentRequirements, now: Date) throws -> X402PaymentPayload
+}
+
+public extension WalletProtocol {
+    /// Default helper that uses the current wall-clock time.
+    func signX402Payment(_ req: X402PaymentRequirements) throws -> X402PaymentPayload {
+        try signX402Payment(req, now: Date())
+    }
 }
 
 public struct ReceiptPollPolicy: Sendable {
@@ -82,6 +90,74 @@ public struct Wallet: WalletProtocol {
         let txHash = try await rpc.sendRawTransaction(signed.rawTransaction)
         try await waitForReceipt(txHash: txHash, rpc: rpc, policy: receiptPoll)
         return txHash
+    }
+
+    public func signX402Payment(_ req: X402PaymentRequirements, now: Date = Date()) throws -> X402PaymentPayload {
+        guard let chainId = X402Chain.chainId(for: req.network) else {
+            throw WalletError.transactionReverted(txHash: "unknown network: \(req.network)")
+        }
+        var nonceBytes = [UInt8](repeating: 0, count: 32)
+        _ = SecRandomCopyBytes(kSecRandomDefault, 32, &nonceBytes)
+        let nonce = Data(nonceBytes)
+        let validAfter: UInt64 = 0
+        let validBefore = UInt64(now.timeIntervalSince1970) + UInt64(req.maxTimeoutSeconds)
+
+        guard let raw = UInt64(req.maxAmountRequired) else {
+            throw WalletError.transactionReverted(txHash: "non-numeric maxAmountRequired: \(req.maxAmountRequired)")
+        }
+        let valueBytes = EIP3009.leftPad(EIP3009.uint64ToData(raw), to: 32)
+
+        let digest = EIP3009.digest(
+            domainName: req.assetName,
+            domainVersion: req.assetVersion,
+            chainId: chainId,
+            verifyingContract: req.asset,
+            from: address.bytes,
+            to: req.payTo,
+            value: valueBytes,
+            validAfter: validAfter,
+            validBefore: validBefore,
+            nonce: nonce
+        )
+        let sig = try signer.signRecoverable(digest: digest)
+
+        // x402 expects v as 27 or 28 (Ethereum convention) — secp256k1 returns
+        // 0 or 1, so add 27.
+        let vByte = UInt8(27 + Int(sig.v))
+        let signatureHex = "0x" + (sig.r + sig.s + Data([vByte])).hexEncodedString()
+
+        // Persistent file log for x402 debugging — separate from the main app
+        // log so we can paste the full payload safely.
+        let dbg = """
+        [x402-sign] domain={name:\(req.assetName), version:\(req.assetVersion), chainId:\(chainId), contract:0x\(req.asset.hexEncodedString())}
+        [x402-sign] auth={from:\(address.hexString()), to:0x\(req.payTo.hexEncodedString()), value:\(req.maxAmountRequired), validAfter:\(validAfter), validBefore:\(validBefore), nonce:0x\(nonce.hexEncodedString())}
+        [x402-sign] digest=0x\(digest.hexEncodedString())
+        [x402-sign] signature=\(signatureHex) (v=\(vByte))
+
+        """
+        let logPath = NSHomeDirectory() + "/Library/Logs/Screenshotter/app.log"
+        if let fh = FileHandle(forWritingAtPath: logPath) {
+            fh.seekToEndOfFile()
+            if let d = dbg.data(using: .utf8) { fh.write(d) }
+            try? fh.close()
+        }
+
+        return X402PaymentPayload(
+            x402Version: 1,
+            scheme: req.scheme,
+            network: req.network,
+            payload: X402PaymentPayload.Inner(
+                signature: signatureHex,
+                authorization: X402Authorization(
+                    from: address.hexString(),
+                    to: "0x" + req.payTo.hexEncodedString(),
+                    value: req.maxAmountRequired,
+                    validAfter: String(validAfter),
+                    validBefore: String(validBefore),
+                    nonce: "0x" + nonce.hexEncodedString()
+                )
+            )
+        )
     }
 
     private func waitForReceipt(txHash: String, rpc: EthereumRPC, policy: ReceiptPollPolicy) async throws {

@@ -12,17 +12,19 @@ public final class HotkeyManager {
     public func register(onPress: @escaping () -> Void) {
         self.onPress = onPress
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        InstallEventHandler(GetApplicationEventTarget(), { _, _, userData in
+        let handlerStatus = InstallEventHandler(GetApplicationEventTarget(), { _, _, userData in
             guard let userData = userData else { return noErr }
             let mgr = Unmanaged<HotkeyManager>.fromOpaque(userData).takeUnretainedValue()
+            FileHandle.standardError.write("[Hotkey] fired\n".data(using: .utf8)!)
             DispatchQueue.main.async { mgr.onPress?() }
             return noErr
         }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), &handler)
 
         let hotKeyID = EventHotKeyID(signature: OSType(0x5343534F), id: 1) // 'SCSO'
         // ⌘⇧2 → keyCode 19 (digit 2 on US layout)
-        RegisterEventHotKey(UInt32(kVK_ANSI_2), UInt32(cmdKey | shiftKey), hotKeyID,
+        let regStatus = RegisterEventHotKey(UInt32(kVK_ANSI_2), UInt32(cmdKey | shiftKey), hotKeyID,
                             GetApplicationEventTarget(), 0, &ref)
+        FileHandle.standardError.write("[Hotkey] InstallEventHandler=\(handlerStatus) RegisterEventHotKey=\(regStatus)\n".data(using: .utf8)!)
     }
 
     deinit {

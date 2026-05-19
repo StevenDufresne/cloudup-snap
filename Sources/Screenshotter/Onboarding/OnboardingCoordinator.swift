@@ -21,7 +21,7 @@ public final class OnboardingCoordinator {
         let view = NSHostingView(rootView: root)
         let win = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 540),
                            styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        win.title = "Welcome to Screenshotter"
+        win.title = "Welcome to Cloudup Snap"
         win.contentView = view
         win.center()
         win.makeKeyAndOrderFront(nil)
@@ -36,8 +36,8 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Welcome to Screenshotter").font(.title)
-            Text("Screenshotter needs two permissions and a small amount of testnet funds to work.")
+            Text("Welcome to Cloudup Snap").font(.title)
+            Text("Cloudup Snap needs two permissions and a small amount of testnet funds to work.")
 
             Divider()
 

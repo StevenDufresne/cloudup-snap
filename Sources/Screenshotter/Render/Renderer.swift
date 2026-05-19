@@ -9,8 +9,9 @@ public enum RendererError: Error {
 
 public enum Renderer {
     public static func flatten(_ doc: AnnotationDocument) throws -> Data {
-        let width = Int(doc.size.width)
-        let height = Int(doc.size.height)
+        let scale = max(1, doc.pixelScale)
+        let width = Int(doc.size.width * scale)
+        let height = Int(doc.size.height * scale)
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         guard let ctx = CGContext(
             data: nil, width: width, height: height, bitsPerComponent: 8,
@@ -18,18 +19,21 @@ public enum Renderer {
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else { throw RendererError.contextCreationFailed }
 
-        // Flip so y-down matches AppKit drawing semantics
-        ctx.translateBy(x: 0, y: CGFloat(height))
-        ctx.scaleBy(x: 1, y: -1)
-
-        // White background fallback
+        // STAGE 1 — background, in CG's native bottom-left-origin space.
+        // `CGContext.draw(image, in:)` orients the image correctly there.
+        ctx.saveGState()
         ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
-        ctx.fill(CGRect(origin: .zero, size: doc.size))
-
+        ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
         if let bg = doc.background {
-            ctx.draw(bg, in: CGRect(origin: .zero, size: doc.size))
+            ctx.draw(bg, in: CGRect(x: 0, y: 0, width: width, height: height))
         }
+        ctx.restoreGState()
 
+        // STAGE 2 — annotations in top-left-origin "AppKit point" space.
+        // The AnnotationModel and the live editor canvas both use top-left
+        // coordinates, so we flip the Y axis and scale up to pixel space.
+        ctx.translateBy(x: 0, y: CGFloat(height))
+        ctx.scaleBy(x: scale, y: -scale)
         for element in doc.elements {
             draw(element, in: ctx, docSize: doc.size, background: doc.background)
         }
@@ -51,12 +55,36 @@ public enum Renderer {
         ctx.saveGState()
         ctx.setStrokeColor(element.style.strokeColor)
         ctx.setLineWidth(element.style.strokeWidth)
+        ctx.setLineCap(.round)
+        ctx.setLineJoin(.round)
+        if element.style.isDashed {
+            let lengths = element.style.dashLengths
+            ctx.setLineDash(phase: 0, lengths: lengths)
+        } else {
+            ctx.setLineDash(phase: 0, lengths: [])
+        }
         if let fill = element.style.fillColor { ctx.setFillColor(fill) }
         switch element.payload {
         case .line(let s, let e):
             ctx.move(to: s)
             ctx.addLine(to: e)
             ctx.strokePath()
+        case .arrow(let s, let e):
+            let dx = e.x - s.x
+            let dy = e.y - s.y
+            if dx != 0 || dy != 0 {
+                let headLen = max(10, element.style.strokeWidth * 4)
+                let angle = atan2(dy, dx)
+                let headAngle = CGFloat.pi / 7
+                let h1 = CGPoint(x: e.x - headLen * cos(angle - headAngle),
+                                 y: e.y - headLen * sin(angle - headAngle))
+                let h2 = CGPoint(x: e.x - headLen * cos(angle + headAngle),
+                                 y: e.y - headLen * sin(angle + headAngle))
+                ctx.setLineCap(.round)
+                ctx.setLineJoin(.round)
+                ctx.move(to: s); ctx.addLine(to: e); ctx.strokePath()
+                ctx.move(to: h1); ctx.addLine(to: e); ctx.addLine(to: h2); ctx.strokePath()
+            }
         case .rect(let f):
             if element.style.fillColor != nil { ctx.fill(f) }
             ctx.stroke(f)

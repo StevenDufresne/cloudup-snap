@@ -18,6 +18,23 @@ public struct PaymentClient: Sendable {
         self.receiptPoll = receiptPoll
     }
 
+    /// Sign an x402 v1 `TransferWithAuthorization` for the given requirements
+    /// and return the structured payload to attach as
+    /// `params._meta["x402/payment"]` on the retry. Enforces the per-call USD
+    /// cap before signing — never produce a signature for an amount we don't
+    /// intend to pay.
+    public func settleX402(_ req: X402PaymentRequirements) async throws -> X402PaymentPayload {
+        let amount = req.amountDecimal
+        guard amount <= capUSD else {
+            throw PaymentError.capExceeded(quotedUSD: amount, capUSD: capUSD)
+        }
+        do {
+            return try wallet.signX402Payment(req)
+        } catch {
+            throw PaymentError.other("Failed to sign x402 payment: \(error)")
+        }
+    }
+
     public func isPaymentRequired(_ error: JSONRPCError) -> Bool {
         error.code == -32042
     }
