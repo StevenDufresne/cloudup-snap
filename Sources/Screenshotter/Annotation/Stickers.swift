@@ -3,8 +3,8 @@ import AppKit
 import CoreGraphics
 
 public enum Stickers {
-    /// Built-in sticker IDs. Three groups: 40 emoji, 8 arrows, 9 numbered pins.
-    public static let allIDs: [String] = (1...40).map { "emoji-\($0)" }
+    /// Built-in sticker IDs. Three groups: 80 emoji, 8 arrows, 9 numbered pins.
+    public static let allIDs: [String] = (1...80).map { "emoji-\($0)" }
         + (0...7).map { "arrow-\($0)" }
         + (1...9).map { "pin-\($0)" }
 
@@ -27,10 +27,16 @@ public enum Stickers {
     }
 
     private static func emojiChar(_ n: Int) -> String {
+        // First 40 entries are kept stable — existing documents reference them
+        // by index. New entries are appended after.
         let pool = ["😀", "😂", "🤔", "🙃", "😎", "🤩", "😇", "🥳", "🤯", "😅",
                     "🔥", "💥", "✨", "🎉", "💯", "👀", "👉", "👈", "✅", "❌",
                     "❤️", "💔", "⭐️", "⚠️", "🚨", "💡", "🔒", "🔑", "📌", "📎",
-                    "🎯", "🏆", "🎁", "🎵", "☕️", "🍕", "🐶", "🐱", "🐢", "🦄"]
+                    "🎯", "🏆", "🎁", "🎵", "☕️", "🍕", "🐶", "🐱", "🐢", "🦄",
+                    "😭", "😴", "😡", "😱", "🤗", "😉", "😘", "🥰", "😋", "🤪",
+                    "👍", "👎", "👏", "🙌", "🙏", "👋", "🤝", "☝️", "👇", "✋",
+                    "❓", "❗️", "🔔", "💎", "💰", "📈", "📉", "🚀", "🐛", "🧠",
+                    "🤖", "📝", "✏️", "📷", "🎨", "💬", "🐰", "🐼", "🦊", "🦁"]
         return pool[(n - 1) % pool.count]
     }
 
