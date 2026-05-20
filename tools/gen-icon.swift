@@ -5,7 +5,7 @@
 // Usage: swift tools/gen-icon.swift <output-iconset-dir>
 //
 // The Cloudup path data is duplicated here (mirror of
-// Sources/Screenshotter/Menubar/CloudupIcon.swift) so this script can run
+// Sources/CloudupSnap/Menubar/CloudupIcon.swift) so this script can run
 // as a standalone Swift one-shot without depending on the app target.
 
 import AppKit

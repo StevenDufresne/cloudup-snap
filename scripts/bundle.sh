@@ -4,12 +4,12 @@ set -euo pipefail
 APP_NAME="Cloudup Snap"
 # Executable name inside the bundle (must match CFBundleExecutable; no spaces).
 EXECUTABLE_NAME="CloudupSnap"
-# SwiftPM product/target name (internal, unchanged from the original scaffold).
-SWIFT_PRODUCT="Screenshotter"
+# SwiftPM product/target name.
+SWIFT_PRODUCT="CloudupSnap"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$ROOT/.build/release"
 APP_DIR="$ROOT/build/$APP_NAME.app"
-TEMPLATE="$ROOT/Sources/Screenshotter/App/Info.plist.template"
+TEMPLATE="$ROOT/Sources/CloudupSnap/App/Info.plist.template"
 
 cd "$ROOT"
 swift build -c release --product "$SWIFT_PRODUCT"
@@ -32,12 +32,12 @@ fi
 cp "$ICNS" "$APP_DIR/Contents/Resources/AppIcon.icns"
 
 # Copy any SwiftPM-generated resource bundle the executable carries
-if [ -d "$BUILD_DIR/Screenshotter_Screenshotter.bundle" ]; then
-  cp -R "$BUILD_DIR/Screenshotter_Screenshotter.bundle" "$APP_DIR/Contents/Resources/"
+if [ -d "$BUILD_DIR/CloudupSnap_CloudupSnap.bundle" ]; then
+  cp -R "$BUILD_DIR/CloudupSnap_CloudupSnap.bundle" "$APP_DIR/Contents/Resources/"
 fi
 
 # Ad-hoc codesign the bundle so the TCC database can track permissions by a
-# stable identifier (com.bongnam.screenshotter from Info.plist). Without this,
+# stable identifier (com.bongnam.cloudupsnap from Info.plist). Without this,
 # every rebuild looks like a different app to TCC and Screen Recording grants
 # don't stick.
 codesign --force --deep --sign - "$APP_DIR" >/dev/null 2>&1

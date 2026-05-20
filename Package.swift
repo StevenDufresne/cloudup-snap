@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "Screenshotter",
+    name: "CloudupSnap",
     platforms: [.macOS(.v14)],
     products: [
-        .library(name: "ScreenshotterCore", targets: ["ScreenshotterCore"]),
-        .executable(name: "screenshotter-cli", targets: ["screenshotter-cli"]),
-        .executable(name: "Screenshotter", targets: ["Screenshotter"]),
+        .library(name: "CloudupSnapCore", targets: ["CloudupSnapCore"]),
+        .executable(name: "cloudupsnap-cli", targets: ["cloudupsnap-cli"]),
+        .executable(name: "CloudupSnap", targets: ["CloudupSnap"]),
     ],
     dependencies: [
         .package(url: "https://github.com/GigaBitcoin/secp256k1.swift", from: "0.18.0"),
@@ -16,33 +16,33 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "ScreenshotterCore",
+            name: "CloudupSnapCore",
             dependencies: [
                 .product(name: "P256K", package: "secp256k1.swift"),
                 .product(name: "CryptoSwift", package: "CryptoSwift"),
             ]
         ),
         .executableTarget(
-            name: "screenshotter-cli",
-            dependencies: ["ScreenshotterCore"]
+            name: "cloudupsnap-cli",
+            dependencies: ["CloudupSnapCore"]
         ),
         .testTarget(
-            name: "ScreenshotterCoreTests",
-            dependencies: ["ScreenshotterCore"]
+            name: "CloudupSnapCoreTests",
+            dependencies: ["CloudupSnapCore"]
         ),
         .testTarget(
             name: "KeychainStoreTests",
-            dependencies: ["ScreenshotterCore"]
+            dependencies: ["CloudupSnapCore"]
         ),
         .executableTarget(
-            name: "Screenshotter",
-            dependencies: ["ScreenshotterCore"],
+            name: "CloudupSnap",
+            dependencies: ["CloudupSnapCore"],
             resources: [.copy("App/Info.plist.template")]
         ),
         .testTarget(
-            name: "ScreenshotterTests",
+            name: "CloudupSnapTests",
             dependencies: [
-                "Screenshotter",
+                "CloudupSnap",
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
             ]
         ),

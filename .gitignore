@@ -1,5 +1,30 @@
+# Build artifacts
 .build/
+build/
 .swiftpm/
+
+# Xcode (we use SwiftPM, but keep these for safety)
 *.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+
+# Secrets — wallet private keys live OUTSIDE the repo by design,
+# but defense in depth in case someone drops one in here.
+.cloudupsnap-wallet-key
+.screenshotter-wallet-key
+*.wallet-key
+*.pem
+*.key
+.env
+.env.*
+
+# Claude Code local state
+.claude/
+
+# macOS
 .DS_Store
+
+# Editor swap files
 *.swp
+*~

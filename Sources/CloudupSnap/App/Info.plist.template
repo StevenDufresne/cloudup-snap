@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleExecutable</key><string>CloudupSnap</string>
+  <key>CFBundleIdentifier</key><string>com.bongnam.cloudupsnap</string>
+  <key>CFBundleName</key><string>Cloudup Snap</string>
+  <key>CFBundleDisplayName</key><string>Cloudup Snap</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>0.1.0</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>LSMinimumSystemVersion</key><string>14.0</string>
+  <key>LSUIElement</key><true/>
+  <key>NSHumanReadableCopyright</key><string>© 2026 Steve Dufresne</string>
+  <key>NSScreenCaptureDescription</key>
+  <string>Cloudup Snap captures regions of your screen to annotate and share.</string>
+  <key>NSAppleEventsUsageDescription</key>
+  <string>Cloudup Snap sends notifications and posts to the clipboard.</string>
+</dict>
+</plist>

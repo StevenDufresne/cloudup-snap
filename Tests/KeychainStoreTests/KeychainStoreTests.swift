@@ -1,14 +1,14 @@
 import XCTest
-@testable import ScreenshotterCore
+@testable import CloudupSnapCore
 
 final class KeychainStoreTests: XCTestCase {
-    let service = "com.bongnam.screenshotter.tests"
+    let service = "com.bongnam.cloudupsnap.tests"
     let account = "integration-test-\(UUID().uuidString)"
     let sut = MacOSKeychainStore()
 
     override func setUp() async throws {
-        guard ProcessInfo.processInfo.environment["SCREENSHOTTER_KEYCHAIN_TESTS"] == "1" else {
-            throw XCTSkip("Set SCREENSHOTTER_KEYCHAIN_TESTS=1 to run Keychain integration tests.")
+        guard ProcessInfo.processInfo.environment["CLOUDUPSNAP_KEYCHAIN_TESTS"] == "1" else {
+            throw XCTSkip("Set CLOUDUPSNAP_KEYCHAIN_TESTS=1 to run Keychain integration tests.")
         }
         try? sut.delete(account: account, service: service)
     }
