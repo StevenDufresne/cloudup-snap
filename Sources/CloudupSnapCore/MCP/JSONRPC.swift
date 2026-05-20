@@ -115,6 +115,47 @@ public struct JSONRPCError: Codable, Error, Sendable {
     public let code: Int
     public let message: String
     public let data: EIP712Value?
+
+    public init(code: Int, message: String, data: EIP712Value? = nil) {
+        self.code = code
+        self.message = message
+        self.data = data
+    }
+
+    enum CodingKeys: String, CodingKey { case code, message, data }
+
+    public init(from decoder: Decoder) throws {
+        // Spec-compliant shape: {"code": Int, "message": String, "data": …}.
+        if let c = try? decoder.container(keyedBy: CodingKeys.self),
+           let code = try? c.decode(Int.self, forKey: .code),
+           let message = try? c.decode(String.self, forKey: .message) {
+            self.code = code
+            self.message = message
+            self.data = try? c.decodeIfPresent(EIP712Value.self, forKey: .data)
+            return
+        }
+        // Off-spec shape we've seen from Cloudup MCP: bare string in `error`.
+        // Surface it as a JSONRPCError so callers see the server's message
+        // instead of an opaque DecodingError that hides the real cause.
+        let single = try decoder.singleValueContainer()
+        if let s = try? single.decode(String.self) {
+            self.code = -32000 // generic server error per JSON-RPC 2.0
+            self.message = s
+            self.data = nil
+            return
+        }
+        throw DecodingError.dataCorruptedError(
+            in: single,
+            debugDescription: "JSONRPCError must be {code,message} object or a string"
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(code, forKey: .code)
+        try c.encode(message, forKey: .message)
+        try c.encodeIfPresent(data, forKey: .data)
+    }
 }
 
 public struct JSONRPCResponse: Codable, Sendable {

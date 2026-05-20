@@ -35,6 +35,21 @@ import Foundation
     }
 }
 
+@Test func jsonRPCResponseDecodesBareStringErrorField() throws {
+    // Cloudup's MCP server occasionally returns `"error": "<string>"` instead
+    // of the spec-mandated `{code,message,data}` object — e.g. on throttling or
+    // certain server-side failures. The client must tolerate that shape and
+    // surface the string as the error message, rather than throwing a
+    // DecodingError that masks the real cause.
+    let json = #"{"jsonrpc":"2.0","id":1,"error":"upload throttled"}"#.data(using: .utf8)!
+    let resp = try JSONDecoder().decode(JSONRPCResponse.self, from: json)
+    if case .failure(let err) = resp.outcome {
+        #expect(err.message == "upload throttled")
+    } else {
+        Issue.record("expected failure outcome for bare-string error field")
+    }
+}
+
 @Test func eip712ValueRoundTripsNumbersAsJSON() throws {
     // The EIP712Value encoder must emit numbers as JSON numbers, not strings.
     // Otherwise PaymentChallenge decoding will break (see Task 15).
