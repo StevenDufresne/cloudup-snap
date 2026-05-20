@@ -2,8 +2,8 @@
 
 A macOS menubar app that captures screen regions, annotates them, and uploads
 to Cloudup, paying per upload in USDC on Base Sepolia via the
-[MPP / x402](docs/superpowers/protocol/mpp-x402.md)-style protocol implemented
-by [`tellyworth/mpp-remote`](https://github.com/tellyworth/mpp-remote).
+MPP / x402-style protocol implemented by
+[`tellyworth/mpp-remote`](https://github.com/tellyworth/mpp-remote).
 
 Plan 1 (the library + CLI) and Plan 2 (the macOS app) are both implemented.
 
@@ -90,9 +90,3 @@ Upload anything:
 - Cloudup `quick_upload` + `tools/call` content-array unwrapping: working;
   returns a real share URL.
 
-## Docs
-
-- Protocol notes: [`docs/superpowers/protocol/mpp-x402.md`](docs/superpowers/protocol/mpp-x402.md)
-- Design spec: [`docs/superpowers/specs/2026-05-12-cloudupsnap-design.md`](docs/superpowers/specs/2026-05-12-cloudupsnap-design.md)
-- Plan 1 (core + CLI): [`docs/superpowers/plans/2026-05-12-cloudupsnap-core-and-cli.md`](docs/superpowers/plans/2026-05-12-cloudupsnap-core-and-cli.md)
-- Plan 2 (macOS app): [`docs/superpowers/plans/2026-05-12-cloudupsnap-macos-app.md`](docs/superpowers/plans/2026-05-12-cloudupsnap-macos-app.md)
