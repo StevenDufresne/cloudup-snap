@@ -455,10 +455,19 @@ public final class CaptureCoordinator {
                 clientName: "cloudup-snap"
             )
             let uploader = Uploader(mcp: mcp, payment: payment)
-            let filename = "recording-\(Int(Date().timeIntervalSince1970)).mp4"
-            // Videos go through begin_upload/PUT/complete_upload so the bytes
-            // bypass the JSON-RPC body and the proxy's request-size cap.
-            let url = try await uploader.uploadLarge(data: data, filename: filename, mime: "video/mp4")
+            let ext = fileURL.pathExtension.isEmpty ? "mp4" : fileURL.pathExtension.lowercased()
+            let mime: String
+            switch ext {
+            case "gif":  mime = "image/gif"
+            case "mp4":  mime = "video/mp4"
+            case "mov":  mime = "video/quicktime"
+            default:     mime = "application/octet-stream"
+            }
+            let filename = "recording-\(Int(Date().timeIntervalSince1970)).\(ext)"
+            // Recordings (and converted GIFs) go through begin_upload/PUT/
+            // complete_upload so the bytes bypass the JSON-RPC body and the
+            // proxy's request-size cap.
+            let url = try await uploader.uploadLarge(data: data, filename: filename, mime: mime)
             log("uploadRecording: got url \(url)")
             clipboard.copy(url)
             await HistoryStore.shared.append(HistoryEntry(
