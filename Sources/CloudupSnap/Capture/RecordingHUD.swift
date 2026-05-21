@@ -1,4 +1,5 @@
 import AppKit
+import CoreGraphics
 
 /// Always-on-top control panel for a recording session. The recording goes
 /// through three states the HUD lays out differently:
@@ -43,6 +44,12 @@ public final class RecordingHUD {
     private var state: State = .ready
 
     public init() {}
+
+    /// CGWindowID of the HUD panel once presented. Used by ScreenRecorder
+    /// to exclude the HUD from the captured pixels via SCContentFilter.
+    public var windowID: CGWindowID? {
+        panel.map { CGWindowID($0.windowNumber) }
+    }
 
     public func present(callbacks: Callbacks) {
         self.callbacks = callbacks

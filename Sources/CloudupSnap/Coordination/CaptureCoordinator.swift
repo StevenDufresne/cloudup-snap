@@ -348,7 +348,8 @@ public final class CaptureCoordinator {
             return
         }
         do {
-            try await recorder.start(options: options, outputURL: url)
+            let excluded = [recordingHUD.windowID].compactMap { $0 }
+            try await recorder.start(options: options, outputURL: url, excludingWindowIDs: excluded)
         } catch {
             log("recorder.start error: \(error)")
             await NotificationService.shared.toast(title: "Recording failed", body: "\(error)")
