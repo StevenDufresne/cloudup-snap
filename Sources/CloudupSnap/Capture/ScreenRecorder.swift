@@ -47,11 +47,18 @@ public final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @
 
     public override init() { super.init() }
 
-    public func start(options: Options, outputURL: URL) async throws {
+    public func start(
+        options: Options,
+        outputURL: URL,
+        excludingWindowIDs: [CGWindowID] = []
+    ) async throws {
         let content = try await SCShareableContent.current
         guard let display = content.displays.first(where: { $0.displayID == options.displayID }) else {
             throw CaptureError.captureFailed("no SCDisplay for displayID \(options.displayID)")
         }
+        let excludedWindows: [SCWindow] = excludingWindowIDs.isEmpty
+            ? []
+            : content.windows.filter { excludingWindowIDs.contains($0.windowID) }
         let config = SCStreamConfiguration()
         let rawW: Int
         let rawH: Int
@@ -98,7 +105,7 @@ public final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @
             throw CaptureError.captureFailed("AVAssetWriter.startWriting failed: \(w.error?.localizedDescription ?? "?")")
         }
 
-        let filter = SCContentFilter(display: display, excludingWindows: [])
+        let filter = SCContentFilter(display: display, excludingWindows: excludedWindows)
         let s = SCStream(filter: filter, configuration: config, delegate: self)
         try s.addStreamOutput(self, type: .screen, sampleHandlerQueue: frameQueue)
         try await s.startCapture()
