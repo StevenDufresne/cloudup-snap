@@ -2,6 +2,7 @@ import AppKit
 import AVKit
 @preconcurrency import AVFoundation
 import Foundation
+import SwiftUI
 
 /// Preview window shown after a recording stops. Lets the user watch the clip
 /// back before deciding to upload or cancel. Mirrors `AnnotationEditor`:
@@ -12,16 +13,22 @@ public final class RecordingEditor: NSObject, NSWindowDelegate {
     private var window: NSWindow?
     private var player: AVPlayer?
     private var playerView: AVPlayerView?
+    private var previewContainer: NSView?
+    private var gifPreview: NSImageView?
     private var statusLabel: NSTextField?
     private var uploadButton: NSButton?
     private var cancelButton: NSButton?
     private var trimButton: NSButton?
+    private var convertButton: NSButton?
     private var progress: NSProgressIndicator?
     private var completion: ((URL?) -> Void)?
     private var fileURL: URL?
     /// Set when the user committed a trim via Apple's trim UI. Applied at
     /// upload time by exporting the source asset across this range.
     private var trimRange: CMTimeRange?
+    /// Set after a successful GIF conversion. Replaces fileURL on Upload.
+    private var gifURL: URL?
+    private var gifSheet: NSWindow?
 
     public override init() { super.init() }
 
@@ -45,12 +52,18 @@ public final class RecordingEditor: NSObject, NSWindowDelegate {
         let container = NSView(frame: NSRect(x: 0, y: 0, width: initialW, height: initialH))
         container.autoresizingMask = [.width, .height]
 
-        // Player on top, autoresizes with window.
-        let pv = AVPlayerView(frame: NSRect(x: 0, y: toolbar, width: initialW, height: videoH))
-        pv.autoresizingMask = [.width, .height, .minYMargin]
+        // Preview container hosts either the AVPlayerView (default) or an
+        // NSImageView showing the animated GIF after a conversion.
+        let previewBox = NSView(frame: NSRect(x: 0, y: toolbar, width: initialW, height: videoH))
+        previewBox.autoresizingMask = [.width, .height, .minYMargin]
+        container.addSubview(previewBox)
+        self.previewContainer = previewBox
+
+        let pv = AVPlayerView(frame: previewBox.bounds)
+        pv.autoresizingMask = [.width, .height]
         pv.controlsStyle = .inline
         pv.showsFullScreenToggleButton = false
-        container.addSubview(pv)
+        previewBox.addSubview(pv)
         self.playerView = pv
 
         // Toolbar bar at the bottom.
@@ -73,11 +86,17 @@ public final class RecordingEditor: NSObject, NSWindowDelegate {
         bar.addSubview(trim)
         self.trimButton = trim
 
-        // Size / status label sits between Trim and Upload.
+        let convert = NSButton(title: "Convert to GIF…", target: self, action: #selector(convertTapped))
+        convert.bezelStyle = .rounded
+        convert.frame = NSRect(x: 192, y: 12, width: 128, height: 32)
+        bar.addSubview(convert)
+        self.convertButton = convert
+
+        // Size / status label sits between Convert and Upload.
         let bytes = (try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
         let mb = Double(bytes) / (1024 * 1024)
         let label = NSTextField(labelWithString: String(format: "%.1f MB", mb))
-        label.frame = NSRect(x: 192, y: 18, width: initialW - 316, height: 20)
+        label.frame = NSRect(x: 328, y: 18, width: initialW - 452, height: 20)
         label.autoresizingMask = [.width]
         label.textColor = .secondaryLabelColor
         label.alignment = .center
@@ -109,7 +128,7 @@ public final class RecordingEditor: NSObject, NSWindowDelegate {
         win.delegate = self
         win.title = "Review Recording"
         win.contentView = container
-        win.contentMinSize = CGSize(width: 480, height: 320)
+        win.contentMinSize = CGSize(width: 620, height: 360)
         win.center()
         win.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -130,6 +149,7 @@ public final class RecordingEditor: NSObject, NSWindowDelegate {
         uploadButton?.isEnabled = !busy
         cancelButton?.isEnabled = !busy
         trimButton?.isEnabled = !busy
+        convertButton?.isEnabled = !busy
         progress?.isHidden = !busy
         if busy { progress?.startAnimation(nil) } else { progress?.stopAnimation(nil) }
     }
@@ -138,6 +158,9 @@ public final class RecordingEditor: NSObject, NSWindowDelegate {
         player?.pause()
         playerView?.player = nil
         player = nil
+        if let gif = gifURL { try? FileManager.default.removeItem(at: gif) }
+        gifURL = nil
+        if let sheet = gifSheet { window?.endSheet(sheet); gifSheet = nil }
         window?.orderOut(nil)
         window = nil
         completion = nil
@@ -145,8 +168,18 @@ public final class RecordingEditor: NSObject, NSWindowDelegate {
     }
 
     @objc private func uploadTapped() {
-        guard let url = fileURL else { return }
         player?.pause()
+        // If a GIF conversion already happened, that's what we upload — the
+        // GIF was already trimmed during conversion, so skip the trim export.
+        if let gif = gifURL {
+            // Hand ownership of the gif file to the caller; clear our local
+            // ref so dismiss() doesn't delete it from under them.
+            gifURL = nil
+            setStatus("Uploading…", busy: true)
+            completion?(gif)
+            return
+        }
+        guard let url = fileURL else { return }
         // If the user committed a trim, export the trimmed range before
         // handing the file off to the uploader. Passthrough preset avoids
         // re-encoding when the keyframe layout allows it.
@@ -215,6 +248,112 @@ public final class RecordingEditor: NSObject, NSWindowDelegate {
                 }
             }
         }
+    }
+
+    @objc private func convertTapped() {
+        guard let url = fileURL, window != nil else { return }
+        Task { @MainActor in
+            // Load metadata so the sheet can show a real size estimate. File
+            // is local, so these awaits are quick.
+            let asset = AVURLAsset(url: url)
+            let assetDuration = (try? await asset.load(.duration)) ?? .zero
+            let track = (try? await asset.loadTracks(withMediaType: .video))?.first
+            var w = 0
+            var h = 0
+            if let track {
+                let nat = (try? await track.load(.naturalSize)) ?? .zero
+                let trans = (try? await track.load(.preferredTransform)) ?? .identity
+                let applied = nat.applying(trans)
+                w = Int(abs(applied.width))
+                h = Int(abs(applied.height))
+            }
+            // If the user already trimmed, scope the conversion to that range.
+            let durSec: Double
+            if let range = self.trimRange, range.duration > .zero {
+                durSec = CMTimeGetSeconds(range.duration)
+            } else {
+                durSec = max(0, CMTimeGetSeconds(assetDuration))
+            }
+            self.presentGifSheet(sourceWidth: w, sourceHeight: h, durationSeconds: durSec)
+        }
+    }
+
+    private func presentGifSheet(sourceWidth: Int, sourceHeight: Int, durationSeconds: Double) {
+        guard let win = window else { return }
+        let view = GifConversionView(
+            sourceWidth: sourceWidth,
+            sourceHeight: sourceHeight,
+            durationSeconds: durationSeconds,
+            onConvert: { [weak self] fps, maxLongSide in
+                self?.beginGifConversion(fps: fps, maxLongSide: maxLongSide)
+            },
+            onCancel: { [weak self] in
+                self?.closeGifSheet()
+            }
+        )
+        let host = NSHostingView(rootView: view)
+        host.frame = NSRect(origin: .zero, size: host.fittingSize)
+        let sheet = NSWindow(
+            contentRect: host.frame,
+            styleMask: [.titled],
+            backing: .buffered, defer: false
+        )
+        sheet.title = "Convert to GIF"
+        sheet.contentView = host
+        sheet.isReleasedWhenClosed = false
+        self.gifSheet = sheet
+        win.beginSheet(sheet) { _ in }
+    }
+
+    private func closeGifSheet() {
+        guard let sheet = gifSheet, let win = window else { return }
+        win.endSheet(sheet)
+        gifSheet = nil
+    }
+
+    private func beginGifConversion(fps: Int, maxLongSide: Int) {
+        guard let sourceURL = fileURL else { return }
+        closeGifSheet()
+        setStatus("Converting to GIF…", busy: true)
+        let range = trimRange
+        Task { @MainActor in
+            do {
+                let outURL = try await GifConverter.convert(
+                    sourceURL: sourceURL,
+                    range: range,
+                    options: GifConverter.Options(fps: fps, maxLongSide: maxLongSide)
+                )
+                self.applyGifResult(at: outURL)
+            } catch {
+                self.setStatus("GIF conversion failed — \(error.localizedDescription)", busy: false)
+            }
+        }
+    }
+
+    private func applyGifResult(at gifURL: URL) {
+        // Stop and remove the AVPlayerView; show the animated GIF in its place
+        // so the user previews exactly what they're about to upload.
+        player?.pause()
+        playerView?.player = nil
+        player = nil
+        playerView?.removeFromSuperview()
+        playerView = nil
+        if let container = previewContainer, let image = NSImage(contentsOf: gifURL) {
+            let iv = NSImageView(frame: container.bounds)
+            iv.autoresizingMask = [.width, .height]
+            iv.image = image
+            iv.animates = true
+            iv.imageScaling = .scaleProportionallyUpOrDown
+            container.addSubview(iv)
+            gifPreview = iv
+        }
+        self.gifURL = gifURL
+        let bytes = (try? gifURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        let mb = Double(bytes) / (1024 * 1024)
+        setStatus(String(format: "GIF · %.1f MB", mb), busy: false)
+        // Trimming the MP4 only makes sense before conversion — disable now.
+        trimButton?.isEnabled = false
+        convertButton?.isEnabled = false
     }
 
     @objc private func cancelTapped() {
