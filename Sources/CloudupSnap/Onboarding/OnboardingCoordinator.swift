@@ -53,7 +53,13 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Welcome to Cloudup Snap").font(.title)
+            HStack(spacing: 12) {
+                Image(nsImage: CloudupIcon.appIconImage(size: 56))
+                    .resizable()
+                    .frame(width: 56, height: 56)
+                    .accessibilityHidden(true)
+                Text("Welcome to Cloudup Snap").font(.title)
+            }
             Text("Cloudup Snap needs two permissions and a small amount of testnet funds to work.")
 
             Divider()
@@ -77,11 +83,25 @@ struct OnboardingView: View {
             Divider()
 
             Text("3. Fund your wallet").font(.headline)
-            Text("Each upload costs ~$0.05 in testnet USDC on Base Sepolia.")
-            Text(address).font(.system(.body, design: .monospaced)).textSelection(.enabled)
-            HStack {
-                Link("Coinbase CDP Faucet", destination: URL(string: "https://portal.cdp.coinbase.com/products/faucet")!)
-                Link("Circle USDC Faucet", destination: URL(string: "https://faucet.circle.com/")!)
+            Text("Cloudup Snap pays for uploads with test USDC on Base Sepolia. Copy this wallet address, open the Circle faucet, choose Base Sepolia USDC, paste the address, and request funds. The faucet sends free test USDC; no real money is needed.")
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 8) {
+                Text(address)
+                    .font(.system(.body, design: .monospaced))
+                    .textSelection(.enabled)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer()
+                Button("Copy") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(address, forType: .string)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Link("Circle USDC Faucet",
+                     destination: URL(string: "https://faucet.circle.com/")!)
             }
 
             DisclosureGroup("Already have a wallet? Import a private key") {
