@@ -14,6 +14,7 @@ public final class CaptureCoordinator {
     private let recordingHUD = RecordingHUD()
     private let recordingEditor = RecordingEditor()
     private let recordingFrame = RecordingFrame()
+    private let displaySelectionPanel = DisplaySelectionPanel()
     private var recorder: ScreenRecorder?
     private let recordingMicrophoneDefaultsKey = "recording.microphone.enabled"
     /// Pending options + output for a recording that's been set up (HUD shown,
@@ -277,7 +278,7 @@ public final class CaptureCoordinator {
         }
         inFlight = true
         if fullScreen {
-            Task { await self.beginFullScreenRecording() }
+            beginFullScreenRecording()
         } else {
             regionOverlay.present { [weak self] selectedRect in
                 guard let self else { return }
@@ -287,14 +288,24 @@ public final class CaptureCoordinator {
         }
     }
 
-    private func beginFullScreenRecording() async {
-        let mouseLocation = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) })
-            ?? NSScreen.main ?? NSScreen.screens[0]
+    private func beginFullScreenRecording() {
+        displaySelectionPanel.present { [weak self] screen in
+            guard let self else { return }
+            guard let screen else {
+                self.log("beginFullScreenRecording: screen selection cancelled")
+                self.inFlight = false
+                return
+            }
+            Task { await self.beginFullScreenRecording(on: screen) }
+        }
+    }
+
+    private func beginFullScreenRecording(on screen: NSScreen) async {
         guard let displayID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID else {
             log("beginFullScreenRecording: no displayID")
             inFlight = false; return
         }
+        log("beginFullScreenRecording: selected display \(displayID) (screen frame \(screen.frame))")
         await beginRecording(
             options: ScreenRecorder.Options(
                 displayID: displayID,
