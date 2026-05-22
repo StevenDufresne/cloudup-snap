@@ -16,6 +16,8 @@
   <key>NSHumanReadableCopyright</key><string>© 2026 Steve Dufresne</string>
   <key>NSScreenCaptureDescription</key>
   <string>Cloudup Snap captures regions of your screen to annotate and share.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Cloudup Snap can record microphone audio when you turn on the mic during screen recording.</string>
   <key>NSAppleEventsUsageDescription</key>
   <string>Cloudup Snap sends notifications and posts to the clipboard.</string>
 </dict>

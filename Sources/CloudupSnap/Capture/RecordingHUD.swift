@@ -4,9 +4,9 @@ import CoreGraphics
 /// Always-on-top control panel for a recording session. The recording goes
 /// through three states the HUD lays out differently:
 ///
-///   ready    →  [● Record]  [Cancel]              (recorder not running)
-///   recording→  [⏸ Pause]   [⏹ Stop]  + pulsing red dot, running timer
-///   paused   →  [▶︎ Resume]  [⏹ Stop]  + steady amber dot, frozen timer
+///   ready    →  [Mic] [● Record]  [Cancel]        (recorder not running)
+///   recording→  [Mic] [⏸ Pause]   [⏹ Stop]  + pulsing red dot, running timer
+///   paused   →  [Mic] [▶︎ Resume]  [⏹ Stop]  + steady amber dot, frozen timer
 ///
 /// All transitions are user-driven via the callbacks supplied to `present`.
 @MainActor
@@ -19,16 +19,19 @@ public final class RecordingHUD {
         public let onResume: () -> Void
         public let onStop: () -> Void
         public let onCancel: () -> Void
+        public let onMicrophoneChanged: (Bool) -> Void
         public init(onRecord: @escaping () -> Void,
                     onPause: @escaping () -> Void,
                     onResume: @escaping () -> Void,
                     onStop: @escaping () -> Void,
-                    onCancel: @escaping () -> Void) {
+                    onCancel: @escaping () -> Void,
+                    onMicrophoneChanged: @escaping (Bool) -> Void = { _ in }) {
             self.onRecord = onRecord
             self.onPause = onPause
             self.onResume = onResume
             self.onStop = onStop
             self.onCancel = onCancel
+            self.onMicrophoneChanged = onMicrophoneChanged
         }
     }
 
@@ -36,12 +39,14 @@ public final class RecordingHUD {
     private var timer: Timer?
     private var dot: NSView?
     private var timeLabel: NSTextField?
+    private var microphoneButton: NSButton?
     private var primaryButton: NSButton?      // Record / Pause / Resume
     private var secondaryButton: NSButton?    // Cancel / Stop / Stop
     private var startedAt: Date?
     private var accumulatedElapsed: TimeInterval = 0
     private var callbacks: Callbacks?
     private var state: State = .ready
+    private var microphoneEnabled = false
 
     public init() {}
 
@@ -51,12 +56,13 @@ public final class RecordingHUD {
         panel.map { CGWindowID($0.windowNumber) }
     }
 
-    public func present(callbacks: Callbacks) {
+    public func present(initialMicrophoneEnabled: Bool = false, callbacks: Callbacks) {
         self.callbacks = callbacks
         self.startedAt = nil
         self.accumulatedElapsed = 0
+        self.microphoneEnabled = initialMicrophoneEnabled
 
-        let size = NSSize(width: 230, height: 44)
+        let size = NSSize(width: 270, height: 44)
         let screen = NSScreen.main ?? NSScreen.screens[0]
         let origin = NSPoint(
             x: screen.frame.midX - size.width / 2,
@@ -102,10 +108,20 @@ public final class RecordingHUD {
         blur.addSubview(time)
         self.timeLabel = time
 
+        let microphone = NSButton(title: "", target: self, action: #selector(microphoneTapped))
+        microphone.bezelStyle = .rounded
+        microphone.controlSize = .small
+        microphone.frame = NSRect(x: 92, y: 10, width: 28, height: 24)
+        microphone.toolTip = "Record microphone audio"
+        microphone.imagePosition = .imageOnly
+        blur.addSubview(microphone)
+        self.microphoneButton = microphone
+        updateMicrophoneButton()
+
         let primary = NSButton(title: "Record", target: self, action: #selector(primaryTapped))
         primary.bezelStyle = .rounded
         primary.controlSize = .small
-        primary.frame = NSRect(x: 92, y: 11, width: 72, height: 22)
+        primary.frame = NSRect(x: 126, y: 11, width: 72, height: 22)
         blur.addSubview(primary)
         self.primaryButton = primary
 
@@ -113,7 +129,7 @@ public final class RecordingHUD {
         secondary.bezelStyle = .rounded
         secondary.controlSize = .small
         secondary.keyEquivalent = "\r"
-        secondary.frame = NSRect(x: 168, y: 11, width: 52, height: 22)
+        secondary.frame = NSRect(x: 202, y: 11, width: 58, height: 22)
         blur.addSubview(secondary)
         self.secondaryButton = secondary
 
@@ -128,6 +144,7 @@ public final class RecordingHUD {
 
     private func applyState(_ state: State) {
         self.state = state
+        microphoneButton?.isEnabled = state == .ready
         switch state {
         case .ready:
             primaryButton?.title = "Record"
@@ -185,6 +202,20 @@ public final class RecordingHUD {
         case .ready:                cb.onCancel()
         case .recording, .paused:   cb.onStop()
         }
+    }
+
+    @objc private func microphoneTapped() {
+        microphoneEnabled.toggle()
+        updateMicrophoneButton()
+        callbacks?.onMicrophoneChanged(microphoneEnabled)
+    }
+
+    private func updateMicrophoneButton() {
+        let symbol = microphoneEnabled ? "mic.fill" : "mic.slash.fill"
+        microphoneButton?.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+        microphoneButton?.contentTintColor = microphoneEnabled ? .systemBlue : .secondaryLabelColor
+        microphoneButton?.toolTip = microphoneEnabled ? "Microphone on" : "Microphone off"
+        microphoneButton?.setAccessibilityLabel(microphoneEnabled ? "Microphone on" : "Microphone off")
     }
 
     private func startPulse() {

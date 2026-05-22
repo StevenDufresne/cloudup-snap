@@ -15,7 +15,7 @@ public final class RegionSelectionOverlay {
         let screen = NSScreen.screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) })
             ?? NSScreen.main
             ?? NSScreen.screens[0]
-        let win = NSWindow(
+        let win = SelectionWindow(
             contentRect: screen.frame,
             styleMask: .borderless,
             backing: .buffered,
@@ -30,6 +30,7 @@ public final class RegionSelectionOverlay {
             self?.finish(rect)
         }
         win.contentView = view
+        win.makeFirstResponder(view)
         win.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         self.window = win
@@ -42,6 +43,11 @@ public final class RegionSelectionOverlay {
         completion = nil
         cb?(rect)
     }
+}
+
+private final class SelectionWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
 }
 
 private final class SelectionView: NSView {
@@ -62,9 +68,15 @@ private final class SelectionView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
-        if event.keyCode == 53 {   // Esc
+        if event.keyCode == 53 || event.charactersIgnoringModifiers == "\u{1b}" {
             onComplete(nil)
+        } else {
+            super.keyDown(with: event)
         }
+    }
+
+    override func cancelOperation(_ sender: Any?) {
+        onComplete(nil)
     }
 
     override func mouseDown(with event: NSEvent) {

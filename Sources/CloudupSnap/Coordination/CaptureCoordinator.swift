@@ -15,10 +15,12 @@ public final class CaptureCoordinator {
     private let recordingEditor = RecordingEditor()
     private let recordingFrame = RecordingFrame()
     private var recorder: ScreenRecorder?
+    private let recordingMicrophoneDefaultsKey = "recording.microphone.enabled"
     /// Pending options + output for a recording that's been set up (HUD shown,
     /// frame drawn) but not yet started. Cleared once `recorder.start()` runs.
     private var pendingRecordingOptions: ScreenRecorder.Options?
     private var pendingRecordingOutputURL: URL?
+    private var pendingRecordingUsesMicrophone = false
     private var recordingMaxDurationTask: Task<Void, Never>?
     private var inFlight = false
 
@@ -328,15 +330,21 @@ public final class CaptureCoordinator {
         self.recorder = ScreenRecorder()
         self.pendingRecordingOptions = options
         self.pendingRecordingOutputURL = url
+        self.pendingRecordingUsesMicrophone = UserDefaults.standard.bool(forKey: recordingMicrophoneDefaultsKey)
         if let rect = highlightRect {
             recordingFrame.present(rect: rect)
         }
-        recordingHUD.present(callbacks: RecordingHUD.Callbacks(
+        recordingHUD.present(initialMicrophoneEnabled: pendingRecordingUsesMicrophone, callbacks: RecordingHUD.Callbacks(
             onRecord: { [weak self] in Task { await self?.handleRecordTapped() } },
             onPause:  { [weak self] in self?.handlePauseTapped() },
             onResume: { [weak self] in self?.handleResumeTapped() },
             onStop:   { [weak self] in Task { await self?.finishRecording() } },
-            onCancel: { [weak self] in self?.handleCancelRecording() }
+            onCancel: { [weak self] in self?.handleCancelRecording() },
+            onMicrophoneChanged: { [weak self] enabled in
+                guard let self else { return }
+                self.pendingRecordingUsesMicrophone = enabled
+                UserDefaults.standard.set(enabled, forKey: self.recordingMicrophoneDefaultsKey)
+            }
         ))
     }
 
@@ -349,7 +357,11 @@ public final class CaptureCoordinator {
         }
         do {
             let excluded = [recordingHUD.windowID].compactMap { $0 }
-            try await recorder.start(options: options, outputURL: url, excludingWindowIDs: excluded)
+            try await recorder.start(
+                options: options,
+                outputURL: url,
+                excludingWindowIDs: excluded,
+                recordsMicrophone: pendingRecordingUsesMicrophone)
         } catch {
             log("recorder.start error: \(error)")
             await NotificationService.shared.toast(title: "Recording failed", body: "\(error)")
@@ -360,6 +372,7 @@ public final class CaptureCoordinator {
         // Clear the pending fields once start has succeeded.
         pendingRecordingOptions = nil
         pendingRecordingOutputURL = nil
+        pendingRecordingUsesMicrophone = false
         recordingHUD.setState(.recording)
 
         let cap = maxRecordingSeconds
@@ -388,6 +401,7 @@ public final class CaptureCoordinator {
         }
         pendingRecordingOptions = nil
         pendingRecordingOutputURL = nil
+        pendingRecordingUsesMicrophone = false
         recordingFrame.dismiss()
         recordingHUD.dismiss()
         recorder = nil
