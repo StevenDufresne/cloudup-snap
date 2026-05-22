@@ -4,9 +4,9 @@ import CoreImage.CIFilterBuiltins
 import CloudupSnapCore
 
 @MainActor
-public final class FundingPanel {
+public final class FundingPanel: NSObject, NSWindowDelegate {
     private var window: NSWindow?
-    public init() {}
+    public override init() { super.init() }
 
     public func present(
         address: String,
@@ -25,12 +25,23 @@ public final class FundingPanel {
         let view = NSHostingView(rootView: root)
         let win = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 560),
                            styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        // NSWindow defaults to isReleasedWhenClosed=true, which conflicts with
+        // ARC managing this strong reference: clicking the red close button
+        // drops the OS-side retain, ARC's later release goes over-zero and
+        // crashes the app with EXC_BAD_ACCESS during the next autorelease
+        // pool drain. Keep ownership in ARC and nil it out on close instead.
+        win.isReleasedWhenClosed = false
+        win.delegate = self
         win.title = "Wallet"
         win.contentView = view
         win.center()
         win.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         self.window = win
+    }
+
+    public nonisolated func windowWillClose(_ notification: Notification) {
+        Task { @MainActor in self.window = nil }
     }
 }
 

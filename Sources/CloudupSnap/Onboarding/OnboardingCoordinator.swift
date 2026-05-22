@@ -21,6 +21,10 @@ public final class OnboardingCoordinator {
         let view = NSHostingView(rootView: root)
         let win = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 640),
                            styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        // NSWindow's isReleasedWhenClosed defaults to true; combined with the
+        // strong `self.window` reference that creates a double-release on
+        // close (crashes on the next autorelease-pool drain). Let ARC own it.
+        win.isReleasedWhenClosed = false
         win.title = "Welcome to Cloudup Snap"
         win.contentView = view
         win.center()
